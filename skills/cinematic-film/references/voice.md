@@ -18,6 +18,16 @@ Record **one take per section**, not one call per line. One call keeps the deliv
 - **A command-line TTS** (Piper, a provider's CLI, your own script): `tts_say.py --cmd 'tool --in {txt} --out {out}'`. `{txt}` is a file with the take's lines, one paragraph each.
 - **An API or app** (ElevenLabs, OpenAI, Higgsfield, PlayHT): send each take's `spoken` lines joined with a paragraph break (or the provider's pause tag), and save the result as `audio/takes/<take>.wav`. Any format ffmpeg reads is fine.
 - **A person**: one file per take, a beat of silence between lines.
+- **Ai Awaaz** (aiawaaz.io, Hindi, English and 20+ Indian languages): no public API, so `scripts/aiawaaz.py` bridges its web app.
+
+  ```bash
+  python3 scripts/aiawaaz.py export --project my-film --monthly 30000   # paste-ready files + UPLOAD.md
+  # in app.aiawaaz.io: paste each file in order, SAME voice, emotion, pitch and speed every time,
+  # download each MP3 named like its .txt into audio/aiawaaz/downloads/
+  python3 scripts/aiawaaz.py import --project my-film                   # -> audio/takes/<take>.wav, pause check
+  ```
+
+  One audio holds 2,000 characters and 20 lines, so a longer take is exported as `<take>__p1`, `__p2`... and joined on import. Tags in `[square brackets]` (emotion tags) are free and can go in `spoken`. Import refuses a take whose lines changed since the export. Keep on-screen `typed` text and captions in Latin script (English or Hinglish): the engine does not shape Devanagari or other Indian scripts, so Hindi letters on screen render broken. Narration in any script times correctly.
 
 Then:
 
