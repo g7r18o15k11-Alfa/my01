@@ -17,7 +17,7 @@ credit and licence yourself from the archive's record page (Library of Congress,
 
 Search tips: Commons search matches file names and descriptions, so search the archive's words
 ("first flight", "Kitty Hawk 1903"), then open the category of a good hit to see its siblings.
-Large originals are fetched as 3200 px renders, which is more than a print on screen ever needs.
+Images are fetched at the largest standard width Wikimedia serves (3840, 2560, 1920, 1280 or 960 px).
 """
 import argparse
 import html
@@ -30,7 +30,10 @@ import urllib.parse
 import urllib.request
 
 API = "https://commons.wikimedia.org/w/api.php"
-UA = "cinematic-film/1.0 (+https://github.com/Moh4696/open-3d-skills)"
+UA = "cinematic-film/1.0 (+https://github.com/Moh4696/cinematic-skill)"
+# upload.wikimedia.org serves resized copies only at standard widths, and refuses most originals
+# (HTTP 429/400). Try these widths, largest first, each with the exact URL the API gives for it.
+WIDTHS = (3840, 2560, 1920, 1280, 960)
 FREE = re.compile(r"public domain|^pd\b|^pd-|cc0|cc[- ]by(?!.*\bnc\b)(?!.*\bnd\b)", re.I)
 
 
@@ -83,16 +86,42 @@ def cmd_category(a):
     show((r.get("query") or {}).get("pages", []))
 
 
-def download(url, dst):
+def download(url, dst, tries=4):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
-    for attempt in range(4):
+    for attempt in range(tries):
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
                 dst.write_bytes(r.read()); return
         except urllib.error.HTTPError as e:
-            if e.code in (429, 503) and attempt < 3:
+            if e.code in (429, 503) and attempt < tries - 1:
                 time.sleep(5 * (attempt + 1)); continue
             raise
+
+
+def thumb_url(orig, w):
+    """upload.wikimedia.org/wikipedia/commons/a/ab/Name.jpg -> .../commons/thumb/a/ab/Name.jpg/<w>px-Name.jpg"""
+    m = re.match(r"(https://upload\.wikimedia\.org/wikipedia/[^/]+)/([0-9a-f]/[0-9a-f]{2})/([^/?]+)", orig or "")
+    if not m:
+        return None
+    base, hashdir, name = m.groups()
+    ext = ".jpg" if name.lower().endswith((".tif", ".tiff")) else ".png" if name.lower().endswith((".svg", ".gif")) else ""
+    return f"{base}/thumb/{hashdir}/{name}/{w}px-{name}{ext}"
+
+
+def fetch_best(title, d, dst):
+    """Download the largest standard-width copy Wikimedia will serve (never wider than the original),
+    with one API call per image: the thumbnail URLs follow from the original's URL."""
+    tries = [thumb_url(d["url"], w) for w in WIDTHS if w < (d["w"] or 0)] + [d["url"]]
+    last = None
+    for url in [u for u in tries if u]:
+        try:
+            download(url, dst, tries=2); return url
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (400, 403, 404, 429):
+                raise
+            time.sleep(1)
+    raise SystemExit(f"could not download {title}: {last}")
 
 
 def cmd_get(a):
@@ -118,12 +147,13 @@ def cmd_get(a):
                 url = d["thumb"]
             ext = pathlib.Path(urllib.parse.urlparse(url).path).suffix.lower() or ".jpg"
             fname = p["file"] if have and not a.force else f"{p['id']}_{re.sub(r'[^A-Za-z0-9]+', '_', title[5:].rsplit('.', 1)[0])[:48]}{ext}"
-            if not have or a.force:
-                download(url, dst_dir / fname)   # an existing file only gets its credit and licence filled in
+            if not have or a.force:          # an existing file only gets its credit and licence filled in
+                fetch_best(title, d, dst_dir / fname)
             p.update(file=fname, source=d["source"], credit=p.get("credit") or d["credit"], license=d["license"],
                      license_url=d["license_url"], date=d["date"], license_ok=ok)
             print(f"{p['id']}: {fname}  [{d['license']}]  {p['credit'][:50]}")
-            time.sleep(0.5)
+            (proj / "photos.json").write_text(json.dumps(spec, indent=1, ensure_ascii=False) + "\n")   # keep progress if a later image fails
+            time.sleep(2)
         elif p.get("url"):
             ext = pathlib.Path(urllib.parse.urlparse(p["url"]).path).suffix.lower() or ".jpg"
             fname = f"{p['id']}{ext}"
