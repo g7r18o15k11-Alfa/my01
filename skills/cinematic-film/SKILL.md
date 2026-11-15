@@ -18,6 +18,7 @@ Built from a 5:22 documentary about Al Capone, then opened up to any subject. Th
 | `scripts/new_project.py` | Starts a project from `assets/template/` (a runnable explainer), or the documentary example with `--example` |
 | `scripts/make_beats.py` | Writes `beats.md`, the table you approve; lints chronology, line length, digits in spoken text |
 | `scripts/tts_say.py` | Free scratch voice (macOS `say`, espeak-ng, or any TTS command) to time the film before the final voice |
+| `scripts/aiawaaz.py` | Ai Awaaz voice (web app, no API): exports paste-ready takes within its limits, imports the downloaded MP3s as takes |
 | `scripts/split_takes.py` | Cuts whole-section takes into one clip per line and flags suspect cuts |
 | `scripts/build_narration.py` | Joins the lines into `audio/narration.m4a` and `audio/timing.json`, which the film is built on |
 | `scripts/fetch_commons.py` | Searches Wikimedia Commons, downloads with licence and credit, refuses non-free files, writes `credits.md` |

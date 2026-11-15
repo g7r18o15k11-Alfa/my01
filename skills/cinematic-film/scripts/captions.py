@@ -15,6 +15,11 @@ import numpy as np
 import skia
 
 from engine import HILITE, Res, ease_out_cubic, paint, ramp, text_width, draw_text
+import unicodedata
+
+def letters(text):
+    """Letters in any script (Latin, Devanagari and other Indian scripts), including spoken vowel signs."""
+    return sum(1 for ch in text if unicodedata.category(ch) in ("Lu", "Ll", "Lt", "Lm", "Lo", "Mc"))
 
 MAX_WORDS = {"highlighter": 6, "clean": 9, "paper": 8, "redbar": 5}
 
@@ -24,10 +29,10 @@ def words_with_times(seg):
     disp = seg["caption"].replace('"', "").split()
     lens = []
     for w in disp:
-        letters = len(re.sub(r"[^A-Za-z]", "", w))
+        n_let = letters(w)
         if re.search(r"\d", w):                      # 1929 is long when spoken ("nineteen twenty-nine")
-            letters = max(letters, 6 * len(re.sub(r"[^0-9]", "", w)) // 2 + 4)
-        lens.append(max(1, letters))
+            n_let = max(n_let, 6 * len(re.sub(r"[^0-9]", "", w)) // 2 + 4)
+        lens.append(max(1, n_let))
     s = sum(lens); acc = 0; out = []
     dur = seg["end"] - seg["start"]
     for w, l in zip(disp, lens):
